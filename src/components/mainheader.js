@@ -1,19 +1,37 @@
-import React, { useContext } from 'react'; 
+import React, { useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PointsContext } from '../context/pointscontext';
 
 export default function MainHeader({ navigation, isProfileOpen, toggleProfile }) {
-  const { points } = useContext(PointsContext); 
+  const { points } = useContext(PointsContext);
+
+  const openMenu = () => {
+    // Primary: open drawer on the current navigation if available
+    if (navigation && typeof navigation.openDrawer === 'function') {
+      navigation.openDrawer();
+      return;
+    }
+    // Fallback: try to open on parent navigator (if header is rendered inside a child stack)
+    const parent = navigation && navigation.getParent && navigation.getParent();
+    if (parent && typeof parent.openDrawer === 'function') {
+      parent.openDrawer();
+      return;
+    }
+    // last-resort: try navigate to the 'More' tab
+    if (navigation && typeof navigation.navigate === 'function') {
+      navigation.navigate('More');
+    }
+  };
 
   return (
     <View style={styles.safeWrapper}>
       <StatusBar barStyle="light-content" backgroundColor="#111" />
       <View style={styles.headerContainer}>
-        
+
         {/* LEFT Section */}
         <View style={styles.leftSection}>
-          <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.menuBtn}>
+          <TouchableOpacity onPress={openMenu} style={styles.menuBtn}>
             <Ionicons name="menu-outline" size={28} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerBrand}>
@@ -24,25 +42,25 @@ export default function MainHeader({ navigation, isProfileOpen, toggleProfile })
         {/* RIGHT Section with Toggle Logic */}
         <View style={styles.rightHeader}>
           {!isProfileOpen && (
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('Search')} 
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Search')}
               style={styles.searchBtn}
             >
               <Ionicons name="search-outline" size={24} color="#FFF" />
             </TouchableOpacity>
           )}
-          
+
           <View style={styles.profileContainer}>
             <TouchableOpacity onPress={toggleProfile}>
               <View style={[styles.profileCircle, isProfileOpen && styles.activeProfile]}>
-                <Ionicons 
-                  name={isProfileOpen ? "close" : "person"} 
-                  size={18} 
-                  color={isProfileOpen ? "#A4D146" : "#000"} 
+                <Ionicons
+                  name={isProfileOpen ? "close" : "person"}
+                  size={18}
+                  color={isProfileOpen ? "#A4D146" : "#000"}
                 />
               </View>
             </TouchableOpacity>
-            
+
             {!isProfileOpen && (
               <Text style={styles.pointsText}>{points || '12.5k'} pts</Text>
             )}
