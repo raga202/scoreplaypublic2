@@ -1,75 +1,87 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Colors } from '../../constants/colors';
-import { fetchMatchDetail } from '../../services/cricketapi';
+import React from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 
-export default function StandardView({ matchId, navigation }) {
-  const [matchData, setMatchData] = useState(null);
+import homescreen from '../homescreen';
+import livestack from '../../navigation/livestack';
+import newscreen from '../newsscreen';
+import predictgame from '../predictgame';
+import shortsscreen from '../shortsscreen';
 
-  useEffect(() => {
-    const loadData = async () => {
-      const data = await fetchMatchDetail(matchId);
-      setMatchData(data);
-    };
-    loadData();
-  }, [matchId]);
+const Tab = createBottomTabNavigator();
 
-  if (!matchData) return <View style={styles.container} />;
-
-  return (
-    <View style={styles.container}>
-      <ScrollView>
-        {/* Score Header */}
-        <View style={styles.scoreCard}>
-            <Text style={styles.matchTitle}>{matchData.teamA} vs {matchData.teamB}</Text>
-            <Text style={styles.score}>{matchData.scoreA}</Text>
-            <Text style={styles.status}>{matchData.status}</Text>
-        </View>
-
-        {/* Basic Stats */}
-        <View style={styles.statsContainer}>
-            <Text style={styles.sectionHeader}>KEY STATS</Text>
-            <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Run Rate</Text>
-                <Text style={styles.statValue}>7.42</Text>
-            </View>
-            <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Projected Score</Text>
-                <Text style={styles.statValue}>345</Text>
-            </View>
-        </View>
-      </ScrollView>
-
-      {/* FOOTER CTA: PREDICT & WIN */}
-      <View style={styles.footerCTA}>
-        <Text style={styles.footerText}>Think you know cricket?</Text>
-        <TouchableOpacity 
-            style={styles.predictBtn}
-            // Navigate to the new Swipe Game
-            onPress={() => navigation.navigate('PredictGame')}
-        >
-            <Text style={styles.predictBtnText}>PREDICT & WIN COINS</Text>
-        </TouchableOpacity>
-      </View>
+// Small bulge-style center button: subtle rise and smaller size
+const ScoreplayTabBarButton = ({ children, onPress }) => (
+  <TouchableOpacity
+    style={styles.middleButtonContainer}
+    onPress={onPress}
+    activeOpacity={0.9}
+  >
+    <View style={styles.middleButton}>
+      {children}
     </View>
+  </TouchableOpacity>
+);
+
+export default function TabNavigator() {
+  return (
+    <Tab.Navigator
+      screenOptions={() => ({
+        headerShown: false,
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: '#A4D146',
+        tabBarInactiveTintColor: '#888',
+        tabBarShowLabel: true,
+        tabBarLabelStyle: { fontSize: 10, marginBottom: 4 },
+      })}
+    >
+      <Tab.Screen name="Home" component={homescreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} /> }} />
+
+      <Tab.Screen name="Live" component={livestack} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="trophy" size={size} color={color} /> }} />
+
+      <Tab.Screen
+        name="Scoreplay"
+        component={predictgame}
+        options={{
+          tabBarLabel: '',
+          tabBarIcon: ({ focused }) => <Ionicons name="sparkles" size={18} color={focused ? "#000" : "#FFF"} />,
+          tabBarButton: (props) => <ScoreplayTabBarButton {...props} />
+        }}
+      />
+
+      <Tab.Screen name="News" component={newscreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="newspaper" size={size} color={color} /> }} />
+
+      <Tab.Screen name="Shorts" component={shortsscreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="play-circle" size={size} color={color} /> }} />
+    </Tab.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  scoreCard: { alignItems: 'center', padding: 40, borderBottomWidth: 1, borderBottomColor: '#222' },
-  matchTitle: { color: '#888', marginBottom: 10 },
-  score: { color: '#fff', fontSize: 48, fontWeight: 'bold' },
-  status: { color: Colors.primary, marginTop: 10 },
-  
-  statsContainer: { padding: 20 },
-  sectionHeader: { color: '#666', fontSize: 12, fontWeight: 'bold', marginBottom: 15 },
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-  statLabel: { color: '#ccc' },
-  statValue: { color: '#fff', fontWeight: 'bold' },
+const TAB_BAR_HEIGHT = 64; // increased height to account for system nav and safe area
 
-  footerCTA: { padding: 20, backgroundColor: '#111', borderTopWidth: 1, borderTopColor: '#333', alignItems: 'center' },
-  footerText: { color: '#888', marginBottom: 10, fontSize: 12 },
-  predictBtn: { backgroundColor: Colors.primary, width: '100%', padding: 15, borderRadius: 10, alignItems: 'center' },
-  predictBtnText: { color: '#000', fontWeight: 'bold', fontSize: 16 }
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: '#111',
+    borderTopWidth: 1,
+    borderTopColor: '#222',
+    height: TAB_BAR_HEIGHT,
+    paddingBottom: Platform.OS === 'android' ? 8 : 0, // extra padding for Android soft nav
+    position: 'absolute',
+    left: 0,
+    right: 0,
+  },
+  middleButtonContainer: {
+    top: -8, // very small bulge
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  middleButton: {
+    width: 40, // smaller
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#A4D146',
+    elevation: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
 });

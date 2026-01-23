@@ -1,153 +1,164 @@
+// save as src/components/matchcarousel.js
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Dimensions,
-  Image
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 const { width: initialWidth } = Dimensions.get('window');
 const DEFAULT_CARD_WIDTH = initialWidth * 0.85;
 const SPACING = 15;
+const LEADING_PADDING = 15; // matches contentContainerStyle paddingHorizontal
+const AUTO_ADVANCE_MS = 4500;
 
+// test data (replace with real matches later)
 const LIVE_MATCHES = [
-  {
-    id: '1',
-    series_name: 'IPL 2026',
-    tournament_logo: '',
-    team_a: 'GT', team_a_logo: '',
-    team_b: 'PBKS', team_b_logo: '',
-    team_a_score: '192/9', team_b_score: '180/4',
-    overs: '18.2', status: 'LIVE'
-  },
-  {
-    id: '2',
-    series_name: 'BBL 2026',
-    tournament_logo: '',
-    team_a: 'SYD', team_a_logo: '',
-    team_b: 'MEL', team_b_logo: '',
-    team_a_score: '145/2', team_b_score: '0/0',
-    overs: '14.1', status: 'LIVE'
-  }
+  { id: '1', series_name: 'IPL 2026', team_a: 'GT', team_b: 'PBKS', team_a_score: '192/9', team_b_score: '180/4', status: 'LIVE' },
+  { id: '2', series_name: 'BBL 2026', team_a: 'SYD', team_b: 'MEL', team_a_score: '145/2', team_b_score: '0/0', status: 'LIVE' },
+  { id: '3', series_name: 'T20 Series', team_a: 'RCB', team_b: 'CSK', team_a_score: '185/3', team_b_score: 'Yet to Bat', status: 'UPCOMING' },
 ];
 
 export default function MatchCarousel() {
   const navigation = useNavigation();
-  const [matchIndex, setMatchIndex] = useState(0);
-  const carouselRef = useRef(null);
+  const listRef = useRef(null);
+  const indexRef = useRef(0);
+  const intervalRef = useRef(null);
+  const mountedRef = useRef(true);
+
   const [cardWidth, setCardWidth] = useState(DEFAULT_CARD_WIDTH);
+  const [measured, setMeasured] = useState(false);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setMatchIndex((prev) => {
-        const next = prev >= LIVE_MATCHES.length - 1 ? 0 : prev + 1;
-        if (carouselRef.current && LIVE_MATCHES.length > 0) {
-          try {
-            carouselRef.current.scrollToIndex({ index: next, animated: true });
-          } catch (e) {
-            try {
-              carouselRef.current.scrollToOffset({ offset: (cardWidth + SPACING) * next, animated: true });
-            } catch (_) { /* ignore */ }
-          }
-        }
-        return next;
-      });
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [cardWidth]);
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, []);
 
-  const renderMatchCard = ({ item }) => (
+  // measure container once (via onLayout on wrapper) and update cardWidth
+  const onContainerLayout = (e) => {
+    const w = e.nativeEvent.layout.width || initialWidth;
+    const computed = Math.min(DEFAULT_CARD_WIDTH, w * 0.85);
+    setCardWidth((prev) => (Math.abs(prev - computed) > 0.5 ? computed : prev));
+    // mark ready after small delay so FlatList children layout
+    setTimeout(() => setMeasured(true), 50);
+  };
+
+  // start auto-advance when measured
+  useEffect(() => {
+    if (!measured) return;
+    if (!LIVE_MATCHES || LIVE_MATCHES.length <= 1) return;
+
+    // set initial position (account for leading padding)
+    try {
+      const initialOffset = LEADING_PADDING + (cardWidth + SPACING) * indexRef.current;
+      if (listRef.current && typeof listRef.current.scrollToOffset === 'function') {
+        listRef.current.scrollToOffset({ offset: initialOffset, animated: false });
+      }
+    } catch (_) {}
+
+    // clear any existing
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    intervalRef.current = setInterval(() => {
+      if (!mountedRef.current) return;
+      if (isUserInteracting) return;
+
+      const next = (indexRef.current + 1) % LIVE_MATCHES.length;
+      indexRef.current = next;
+      const offset = LEADING_PADDING + (cardWidth + SPACING) * next;
+
+      if (listRef.current && typeof listRef.current.scrollToOffset === 'function') {
+        try {
+          listRef.current.scrollToOffset({ offset, animated: true });
+        } catch (e) {
+          // fallback to scrollToIndex
+          try { listRef.current.scrollToIndex({ index: next, animated: true }); } catch (_) {}
+        }
+      }
+    }, AUTO_ADVANCE_MS);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [measured, cardWidth, isUserInteracting]);
+
+  const onMomentumScrollEnd = (ev) => {
+    try {
+      const x = ev.nativeEvent.contentOffset.x || 0;
+      const raw = (x - LEADING_PADDING) / (cardWidth + SPACING);
+      const idx = Math.round(raw);
+      indexRef.current = Math.max(0, Math.min(idx, LIVE_MATCHES.length - 1));
+    } catch (_) {}
+    setTimeout(() => setIsUserInteracting(false), 200);
+  };
+
+  const renderItem = ({ item }) => (
     <TouchableOpacity
       style={[styles.card, { width: cardWidth }]}
       activeOpacity={0.9}
       onPress={() => {
-        // robust navigation to MatchDetail inside More stack
-        const root = navigation && navigation.getParent ? navigation.getParent() : null;
-        // climb to top-level if needed
-        let top = navigation;
-        while (top.getParent && top.getParent()) top = top.getParent();
-        if (top && typeof top.navigate === 'function') {
-          top.navigate('MainTabs', { screen: 'More', params: { screen: 'MatchDetail', params: { match: item } } });
-        } else {
-          navigation.navigate('More', { screen: 'MatchDetail', params: { match: item } });
+        // navigate into Live stack where MatchDetail is registered
+        try {
+          navigation.navigate('Live', { screen: 'MatchDetail', params: { match: item } });
+        } catch {
+          let top = navigation;
+          while (top && top.getParent && top.getParent()) top = top.getParent();
+          if (top && typeof top.navigate === 'function') {
+            top.navigate('MainTabs', { screen: 'More', params: { screen: 'MatchDetail', params: { match: item } } });
+          }
         }
       }}
     >
       <View style={styles.cardHeader}>
-        {item.tournament_logo ? <Image source={{ uri: item.tournament_logo }} style={styles.tournamentLogo} /> : <View style={[styles.tournamentLogo, { backgroundColor: '#222' }]} />}
-        <View style={styles.liveBadge}><Text style={styles.liveText}>{item.status}</Text></View>
+        <Text style={styles.series}>{item.series_name}</Text>
+        <View style={styles.badge}><Text style={styles.badgeText}>{item.status}</Text></View>
       </View>
-
-      <View style={styles.teamsDisplay}>
-        <View style={styles.teamInfo}>
-          {item.team_a_logo ? <Image source={{ uri: item.team_a_logo }} style={styles.teamLogo} /> : <View style={[styles.teamLogo, { backgroundColor: '#222' }]} />}
-          <Text style={styles.teamName}>{item.team_a}</Text>
-        </View>
-        <View style={styles.scoreCenter}>
-          <Text style={styles.mainScore}>{item.team_a_score} - {item.team_b_score}</Text>
-          <Text style={styles.oversText}>{item.overs} OV</Text>
-        </View>
-        <View style={styles.teamInfo}>
-          {item.team_b_logo ? <Image source={{ uri: item.team_b_logo }} style={styles.teamLogo} /> : <View style={[styles.teamLogo, { backgroundColor: '#222' }]} />}
-          <Text style={styles.teamName}>{item.team_b}</Text>
-        </View>
-      </View>
-
-      <View style={styles.predictionRow}>
-        <TouchableOpacity style={styles.predBtn}><Text style={styles.predBtnText}>1</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.predBtn}><Text style={styles.predBtnText}>X</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.predBtn}><Text style={styles.predBtnText}>2</Text></TouchableOpacity>
+      <View style={styles.teams}>
+        <Text style={styles.team}>{item.team_a}</Text>
+        <Text style={styles.score}>{item.team_a_score} - {item.team_b_score}</Text>
+        <Text style={styles.team}>{item.team_b}</Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container} onLayout={(e) => {
-      const w = e.nativeEvent.layout.width;
-      const newCardWidth = Math.max(DEFAULT_CARD_WIDTH, w * 0.85);
-      setCardWidth(newCardWidth);
-    }}>
+    <View style={styles.wrapper} onLayout={onContainerLayout}>
       <FlatList
-        ref={carouselRef}
-        data={LIVE_MATCHES}
-        renderItem={renderMatchCard}
-        keyExtractor={item => item.id}
+        ref={listRef}
         horizontal
+        data={LIVE_MATCHES}
+        renderItem={renderItem}
+        keyExtractor={(it) => it.id}
         showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: LEADING_PADDING }}
         snapToInterval={cardWidth + SPACING}
-        decelerationRate="fast"
-        contentContainerStyle={styles.listPadding}
-        getItemLayout={(data, index) => ({
-          length: cardWidth + SPACING,
-          offset: (cardWidth + SPACING) * index,
-          index,
-        })}
-        onScrollToIndexFailed={() => { /* ignore until layout */ }}
+        decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.98}
+        getItemLayout={(data, index) => ({ length: cardWidth + SPACING, offset: (cardWidth + SPACING) * index, index })}
+        onMomentumScrollEnd={onMomentumScrollEnd}
+        onScrollBeginDrag={() => setIsUserInteracting(true)}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { marginVertical: 10 },
-  listPadding: { paddingHorizontal: 15 },
-  card: { backgroundColor: '#111', borderRadius: 20, padding: 20, marginRight: SPACING, borderWidth: 1, borderColor: '#222' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  tournamentLogo: { width: 35, height: 35, resizeMode: 'contain' },
-  liveBadge: { backgroundColor: '#FF3B30', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  liveText: { color: '#FFF', fontSize: 9, fontWeight: 'bold' },
-  teamsDisplay: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  teamInfo: { alignItems: 'center', flex: 1 },
-  teamLogo: { width: 45, height: 45, resizeMode: 'contain', marginBottom: 5 },
-  teamName: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
-  scoreCenter: { alignItems: 'center', flex: 1.5 },
-  mainScore: { color: '#FFF', fontSize: 18, fontWeight: '900' },
-  oversText: { color: '#A4D146', fontSize: 11, fontWeight: 'bold' },
-  predictionRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  predBtn: { backgroundColor: '#222', flex: 1, marginHorizontal: 4, paddingVertical: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
-  predBtnText: { color: '#FFF', fontWeight: 'bold' }
+  wrapper: { marginVertical: 10 },
+  card: { backgroundColor: '#111', borderRadius: 12, padding: 14, marginRight: SPACING, borderWidth: 1, borderColor: '#222' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  series: { color: '#AAA', fontSize: 12 },
+  badge: { backgroundColor: '#FF3B30', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  badgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
+  teams: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  team: { color: '#FFF', fontSize: 13, width: 60 },
+  score: { color: '#A4D146', fontWeight: '900' },
 });

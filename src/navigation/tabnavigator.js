@@ -1,17 +1,18 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
-import { View, StyleSheet, TouchableOpacity, Platform, Text } from 'react-native';
+  import { Ionicons } from '@expo/vector-icons';
+import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import HomeScreen from '../screens/homescreen';
-import NewsScreen from '../screens/newsscreen';
-import PredictGame from '../screens/predictgame'; 
-import ProView from '../screens/tabs/proview'; // Corrected path
-import ShortsScreen from '../screens/shortsscreen';
+import homescreen from '../screens/homescreen';
+import livestack from './livestack';
+import newscreen from '../screens/newsscreen';
+import predictgame from '../screens/predictgame'; // center action
+import shortsscreen from '../screens/shortsscreen';
 
 const Tab = createBottomTabNavigator();
 
+// Small bulge-style center button: subtle rise and smaller size
 const ScoreplayTabBarButton = ({ children, onPress }) => (
   <TouchableOpacity
     style={styles.middleButtonContainer}
@@ -19,70 +20,45 @@ const ScoreplayTabBarButton = ({ children, onPress }) => (
     activeOpacity={0.9}
   >
     <View style={styles.middleButton}>
-      <View style={styles.logoCircle}>
-        <Text style={styles.logoS}>S</Text>
-        <Text style={styles.logoP}>P</Text>
-      </View>
+      {children}
     </View>
   </TouchableOpacity>
 );
 
 export default function TabNavigator() {
   const insets = useSafeAreaInsets();
+  // Compute tab bar height including bottom inset
+  const TAB_BAR_HEIGHT = 64;
+  const tabBarHeightWithInset = TAB_BAR_HEIGHT + (insets.bottom || (Platform.OS === 'android' ? 8 : 0));
 
   return (
     <Tab.Navigator
-      screenOptions={{
+      screenOptions={() => ({
         headerShown: false,
-        tabBarStyle: [
-          styles.tabBar, 
-          { 
-            height: 65 + insets.bottom, 
-            paddingBottom: insets.bottom > 0 ? insets.bottom - 5 : 5 
-          }
-        ],
+        tabBarStyle: [{ ...styles.tabBar, height: tabBarHeightWithInset, paddingBottom: insets.bottom || (Platform.OS === 'android' ? 8 : 0) }],
         tabBarActiveTintColor: '#A4D146',
         tabBarInactiveTintColor: '#888',
         tabBarShowLabel: true,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
-      }}
+        tabBarLabelStyle: { fontSize: 10, marginBottom: 4 },
+      })}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen} 
-        options={{
-          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={24} color={color} />
-        }}
-      />
-      <Tab.Screen 
-        name="News" 
-        component={NewsScreen} 
-        options={{
-          tabBarIcon: ({ color }) => <Ionicons name="newspaper-outline" size={24} color={color} />
-        }}
-      />
-      <Tab.Screen 
-        name="Scoreplay" 
-        component={PredictGame} 
+      <Tab.Screen name="Home" component={homescreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} /> }} />
+
+      <Tab.Screen name="Live" component={livestack} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="trophy" size={size} color={color} /> }} />
+
+      <Tab.Screen
+        name="Scoreplay"
+        component={predictgame}
         options={{
           tabBarLabel: '',
+          tabBarIcon: ({ focused }) => <Ionicons name="sparkles" size={18} color={focused ? "#000" : "#FFF"} />,
           tabBarButton: (props) => <ScoreplayTabBarButton {...props} />
         }}
       />
-      <Tab.Screen 
-        name="Pro" 
-        component={ProView} 
-        options={{
-          tabBarIcon: ({ color }) => <Ionicons name="flash-outline" size={24} color={color} />
-        }}
-      />
-      <Tab.Screen 
-        name="Shorts" 
-        component={ShortsScreen} 
-        options={{
-          tabBarIcon: ({ color }) => <Ionicons name="play-circle-outline" size={24} color={color} />
-        }}
-      />
+
+      <Tab.Screen name="News" component={newscreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="newspaper" size={size} color={color} /> }} />
+
+      <Tab.Screen name="Shorts" component={shortsscreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="play-circle" size={size} color={color} /> }} />
     </Tab.Navigator>
   );
 }
@@ -93,25 +69,21 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#222',
     position: 'absolute',
-    elevation: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    left: 0,
+    right: 0,
   },
-  middleButtonContainer: { top: -25, justifyContent: 'center', alignItems: 'center' },
-  middleButton: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#A4D146',
-    elevation: 10,
-    shadowColor: '#A4D146',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
+  middleButtonContainer: {
+    top: -8, // very small bulge
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoCircle: { flexDirection: 'row', alignItems: 'center' },
-  logoS: { color: '#000', fontSize: 24, fontWeight: '900' },
-  logoP: { color: '#FFF', fontSize: 24, fontWeight: '900', marginLeft: -2 }
+  middleButton: {
+    width: 40, // smaller
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#A4D146',
+    elevation: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
 });

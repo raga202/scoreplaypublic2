@@ -1,15 +1,15 @@
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/authcontext';
 import { PointsContext } from '../context/pointscontext';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ toggleProfile = () => {} }) {
   const { logout, user } = useContext(AuthContext);
   const { points } = useContext(PointsContext);
 
   const ProfileOption = ({ icon, title, value }) => (
-    <TouchableOpacity style={styles.optionRow}>
+    <TouchableOpacity style={styles.optionRow} activeOpacity={0.8}>
       <View style={styles.optionLeft}>
         <Ionicons name={icon} size={22} color="#A4D146" />
         <Text style={styles.optionTitle}>{title}</Text>
@@ -22,52 +22,83 @@ export default function ProfileScreen() {
   );
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Header Profile Section */}
-      <View style={styles.header}>
-        <View style={styles.imageContainer}>
-          <View style={styles.profilePlaceholder}>
-             <Ionicons name="person" size={50} color="#000" />
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.container}>
+        {/* Close X - top right */}
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={toggleProfile}
+          accessibilityLabel="Close profile"
+          accessibilityRole="button"
+        >
+          <Ionicons name="close" size={18} color="#FFF" />
+        </TouchableOpacity>
+
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Header Profile Section */}
+          <View style={styles.header}>
+            <View style={styles.imageContainer}>
+              <View style={styles.profilePlaceholder}>
+                <Ionicons name="person" size={50} color="#000" />
+              </View>
+              <TouchableOpacity style={styles.editBadge} activeOpacity={0.8}>
+                <Ionicons name="camera" size={16} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.userName}>{user?.email || 'Cricket Fan'}</Text>
+            <View style={styles.pointsBadge}>
+              <Text style={styles.pointsLabel}>{points || '12.5k'} TOTAL PTS</Text>
+            </View>
           </View>
-          <TouchableOpacity style={styles.editBadge}>
-            <Ionicons name="camera" size={16} color="#FFF" />
+
+          {/* Account Settings Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>ACCOUNT SETTINGS</Text>
+            <ProfileOption icon="person-outline" title="Personal Information" />
+            <ProfileOption icon="notifications-outline" title="Notifications" value="On" />
+            <ProfileOption icon="shield-checkmark-outline" title="Privacy & Security" />
+          </View>
+
+          {/* Rewards Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>REWARDS & ANALYTICS</Text>
+            <ProfileOption icon="trophy-outline" title="Prediction History" />
+            <ProfileOption icon="stats-chart-outline" title="Win Rate" value="64%" />
+            <ProfileOption icon="gift-outline" title="Redeem Points" />
+          </View>
+
+          {/* Logout */}
+          <TouchableOpacity style={styles.logoutBtn} onPress={logout} activeOpacity={0.8}>
+            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+            <Text style={styles.logoutText}>SIGN OUT</Text>
           </TouchableOpacity>
-        </View>
-        <Text style={styles.userName}>{user?.email || 'Cricket Fan'}</Text>
-        <View style={styles.pointsBadge}>
-          <Text style={styles.pointsLabel}>{points || '12.5k'} TOTAL PTS</Text>
-        </View>
+
+          <View style={{ height: 50 }} />
+        </ScrollView>
       </View>
-
-      {/* Account Settings Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionHeader}>ACCOUNT SETTINGS</Text>
-        <ProfileOption icon="person-outline" title="Personal Information" />
-        <ProfileOption icon="notifications-outline" title="Notifications" value="On" />
-        <ProfileOption icon="shield-checkmark-outline" title="Privacy & Security" />
-      </View>
-
-      {/* Rewards Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionHeader}>REWARDS & ANALYTICS</Text>
-        <ProfileOption icon="trophy-outline" title="Prediction History" />
-        <ProfileOption icon="stats-chart-outline" title="Win Rate" value="64%" />
-        <ProfileOption icon="gift-outline" title="Redeem Points" />
-      </View>
-
-      {/* Logout */}
-      <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-        <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
-        <Text style={styles.logoutText}>SIGN OUT</Text>
-      </TouchableOpacity>
-
-      <View style={{ height: 50 }} />
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  safe: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: '#000', position: 'relative' },
+  scrollContent: { paddingBottom: 20 },
+
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
+    zIndex: 50,
+    backgroundColor: '#111',
+    padding: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#222',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   header: { alignItems: 'center', paddingVertical: 40, borderBottomWidth: 1, borderBottomColor: '#111' },
   imageContainer: { position: 'relative', marginBottom: 15 },
   profilePlaceholder: {
@@ -76,7 +107,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     backgroundColor: '#A4D146', // App Theme
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   editBadge: {
     position: 'absolute',
@@ -86,7 +117,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: '#000'
+    borderColor: '#000',
   },
   userName: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
   pointsBadge: {
@@ -95,9 +126,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#A4D146'
+    borderColor: '#A4D146',
   },
   pointsLabel: { color: '#A4D146', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+
   section: { marginTop: 25, paddingHorizontal: 20 },
   sectionHeader: { color: '#444', fontSize: 11, fontWeight: 'bold', letterSpacing: 2, marginBottom: 15 },
   optionRow: {
@@ -109,18 +141,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#111'
+    borderColor: '#111',
   },
   optionLeft: { flexDirection: 'row', alignItems: 'center' },
   optionTitle: { color: '#DDD', fontSize: 14, marginLeft: 15, fontWeight: '500' },
   optionRight: { flexDirection: 'row', alignItems: 'center' },
   optionValue: { color: '#666', fontSize: 13, marginRight: 10 },
+
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 40,
-    padding: 20
+    padding: 20,
   },
-  logoutText: { color: '#FF3B30', fontWeight: 'bold', marginLeft: 10, fontSize: 14, letterSpacing: 1 }
+  logoutText: { color: '#FF3B30', fontWeight: 'bold', marginLeft: 10, fontSize: 14, letterSpacing: 1 },
 });
